@@ -1,0 +1,21 @@
+﻿using System;
+using System.Collections.Generic;
+
+namespace SkillUpAPI.Domain.Entities
+{
+    public class User
+    {
+        public int Id { get; set; }
+        public string Username { get; set; } = null!;
+        public string Email { get; set; } = null!;
+        public string PasswordHash { get; set; } = null!;
+        public UserRole Role { get; set; } = UserRole.Student;
+        public int TotalPoints { get; set; } = 0;
+        public DateTime CreatedAt { get; set; }
+
+        public List<Course> Courses { get; set; } = new();
+        public List<Attempt> Attempts { get; set; } = new();
+        public List<UserBadge> UserBadges { get; set; } = new();
+        public List<Enrollment> Enrollments { get; set; } = new();
+    }
+}
