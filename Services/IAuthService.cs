@@ -6,5 +6,7 @@ namespace SkillUpAPI.Services
     {
         Task<AuthResponse> RegisterAsync(RegisterRequest req);
         Task<AuthResponse> LoginAsync(LoginRequest req);
+        Task<UserDto?> GetUserByIdAsync(int userId);
+
     }
 }

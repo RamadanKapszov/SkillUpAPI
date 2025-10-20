@@ -12,8 +12,10 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddDbContext<AppDbContext>(opt =>
     opt.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
+
 // Add application services
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IProgressService, ProgressService>();
 
 builder.Services.AddControllers();
 
@@ -21,6 +23,18 @@ builder.Services.AddControllers();
 var jwt = builder.Configuration.GetSection("Jwt");
 var secret = jwt.GetValue<string>("Secret") ?? throw new InvalidOperationException("JWT secret missing");
 var key = Encoding.UTF8.GetBytes(secret);
+
+
+// Add CORS
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAngular",
+        policy => policy
+            .WithOrigins("http://localhost:4200") // 👈 Angular frontend
+            .AllowAnyMethod()
+            .AllowAnyHeader()
+            .AllowCredentials());
+});
 
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -72,6 +86,8 @@ builder.Services.AddSwaggerGen(c =>
 
 
 var app = builder.Build();
+
+app.UseCors("AllowAngular");
 
 // Swagger middleware (dev or always — for testing you can enable in non-dev too)
 app.UseSwagger();

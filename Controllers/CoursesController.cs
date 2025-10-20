@@ -6,6 +6,7 @@ using SkillUpAPI.DTOs;
 using SkillUpAPI.DTOs.CourseDTOs;
 using SkillUpAPI.DTOs.LessonDTOs;
 using SkillUpAPI.Persistence;
+using SkillUpAPI.Services;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 
@@ -17,10 +18,11 @@ namespace SkillUpAPI.Controllers
     public class CoursesController : ControllerBase
     {
         private readonly AppDbContext _db;
-
-        public CoursesController(AppDbContext db)
+        private readonly IProgressService _progressService;
+        public CoursesController(AppDbContext db, IProgressService progressService)
         {
             _db = db;
+            _progressService = progressService;
         }
 
         // Helper to get user id from JWT (sub claim)
@@ -291,7 +293,7 @@ namespace SkillUpAPI.Controllers
 
         // GET /api/courses/my
         // Returns courses the current user is enrolled in OR teaches
-        [HttpGet("my")]
+        [HttpGet("mycourses")]
         [Authorize]
         public async Task<IActionResult> GetMyCourses()
         {
@@ -339,5 +341,32 @@ namespace SkillUpAPI.Controllers
 
             return Ok(merged);
         }
+
+        [HttpGet("{courseId}/progress")]
+        [Authorize(Roles = "Student,Teacher,Admin")]
+        public async Task<IActionResult> GetCourseProgress(int courseId)
+        {
+            var userId = GetUserId();
+            if (userId == null) return Unauthorized();
+
+            var progress = await _progressService.GetUserCourseProgressAsync(userId.Value, courseId);
+            if (progress == null) return NotFound();
+
+            return Ok(progress);
+        }
+
+
+        // GET /api/progress/courses/{courseId}/completed
+        [HttpGet("courses/{courseId}/completed")]
+        public async Task<IActionResult> GetCompletedLessons(int courseId)
+        {
+            var userId = GetUserId();
+            if (userId == null) return Unauthorized();
+
+            var completedLessons = await _progressService.GetCompletedLessonsAsync(userId.Value, courseId);
+            // връща списък с IDs
+            return Ok(completedLessons);
+        }
+
     }
 }

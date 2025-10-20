@@ -98,5 +98,24 @@ namespace SkillUpAPI.Services
                 }
             };
         }
+
+        public async Task<UserDto?> GetUserByIdAsync(int userId)
+        {
+            var user = await _db.Users
+                .AsNoTracking()
+                .FirstOrDefaultAsync(u => u.Id == userId);
+
+            if (user == null) return null;
+
+            return new UserDto
+            {
+                Id = user.Id,
+                Username = user.Username,
+                Email = user.Email,
+                Role = user.Role.ToString(),
+                TotalPoints = user.TotalPoints
+            };
+        }
+
     }
 }

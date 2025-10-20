@@ -17,6 +17,7 @@ namespace SkillUpAPI.Persistence
         public DbSet<Badge> Badges { get; set; } = null!;
         public DbSet<UserBadge> UserBadges { get; set; } = null!;
         public DbSet<Enrollment> Enrollments { get; set; } = null!;
+        public DbSet<LessonCompletion> LessonCompletions { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder b)
         {

@@ -1,6 +1,9 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using SkillUpAPI.DTOs.Identity;
 using SkillUpAPI.Services;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 
 namespace SkillUpAPI.Controllers
 {
@@ -8,39 +11,58 @@ namespace SkillUpAPI.Controllers
     [Route("api/[controller]")]
     public class AuthController : ControllerBase
     {
-        private readonly IAuthService _auth;
+        private readonly IAuthService _authService;
 
-        public AuthController(IAuthService auth)
+        public AuthController(IAuthService authService)
         {
-            _auth = auth;
+            _authService = authService;
         }
 
         [HttpPost("register")]
-        public async Task<ActionResult<AuthResponse>> Register([FromBody] RegisterRequest req)
+        public async Task<IActionResult> Register(RegisterRequest dto)
         {
             try
             {
-                var result = await _auth.RegisterAsync(req);
-                return Ok(result);
+                var authResponse = await _authService.RegisterAsync(dto);
+                return Ok(authResponse);
             }
             catch (InvalidOperationException ex)
             {
-                return BadRequest(new { error = ex.Message });
+                return BadRequest(new { message = ex.Message });
             }
         }
 
         [HttpPost("login")]
-        public async Task<ActionResult<AuthResponse>> Login([FromBody] LoginRequest req)
+        public async Task<IActionResult> Login(LoginRequest dto)
         {
             try
             {
-                var result = await _auth.LoginAsync(req);
-                return Ok(result);
+                var authResponse = await _authService.LoginAsync(dto);
+                return Ok(authResponse);
             }
             catch (InvalidOperationException ex)
             {
-                return Unauthorized(new { error = ex.Message });
+                return Unauthorized(new { message = ex.Message });
             }
+        }
+
+        [Authorize]
+        [HttpGet("me")]
+        public async Task<ActionResult<UserDto>> GetCurrentUser()
+        {
+            var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier)
+                             ?? User.FindFirstValue(JwtRegisteredClaimNames.Sub);
+
+            if (userIdClaim == null) return Unauthorized();
+
+            var userId = int.Parse(userIdClaim);
+
+            // Assuming your AuthService has a method to get user by ID
+            var user = await _authService.GetUserByIdAsync(userId);
+
+            if (user == null) return NotFound();
+
+            return Ok(user);
         }
     }
 }
