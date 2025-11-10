@@ -9,7 +9,7 @@ namespace SkillUpAPI.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize(Roles = "Admin")] // само админ може да управлява категории
+    [Authorize(Roles = "Admin")]
     public class CategoriesController : ControllerBase
     {
         private readonly AppDbContext _db;
@@ -19,49 +19,71 @@ namespace SkillUpAPI.Controllers
             _db = db;
         }
 
-        // GET /api/categories
+        // ✅ PUBLIC: Get all categories (everyone can see)
         [HttpGet]
-        [AllowAnonymous] // позволяваме на всички да виждат категориите
+        [AllowAnonymous]
         public async Task<ActionResult<IEnumerable<CategoryDto>>> GetAll()
         {
             var categories = await _db.Categories
                 .AsNoTracking()
+                .OrderBy(c => c.Name)
                 .Select(c => new CategoryDto
                 {
                     Id = c.Id,
-                    Name = c.Name
+                    Name = c.Name,
+                    CourseCount = c.Courses.Count,
+                    Description = c.Description
                 })
                 .ToListAsync();
 
             return Ok(categories);
         }
 
-        // GET /api/categories/{id}
+        // ✅ PUBLIC: Get a single category + its courses
         [HttpGet("{id:int}")]
         [AllowAnonymous]
-        public async Task<ActionResult<CategoryDto>> GetById(int id)
+        public async Task<ActionResult<CategoryWithCoursesDto>> GetById(int id)
         {
-            var category = await _db.Categories.FindAsync(id);
+            var category = await _db.Categories
+                .Include(c => c.Courses)
+                    .ThenInclude(cr => cr.Teacher)
+                .AsNoTracking()
+                .FirstOrDefaultAsync(c => c.Id == id);
+
             if (category == null) return NotFound();
 
-            return Ok(new CategoryDto
+            var dto = new CategoryWithCoursesDto
             {
                 Id = category.Id,
-                Name = category.Name
-            });
+                Name = category.Name,
+                Courses = category.Courses.Select(cr => new CourseSummaryDto
+                {
+                    Id = cr.Id,
+                    Title = cr.Title,
+                    Description = cr.Description,
+                    TeacherId = cr.TeacherId,
+                    TeacherUsername = cr.Teacher.Username,
+                    CreatedAt = cr.CreatedAt
+                   
+                   
+                }).ToList()
+            };
+
+            return Ok(dto);
         }
 
-        // POST /api/categories
+        // ✅ ADMIN: Create category
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] CategoryDto dto)
         {
-            if (!ModelState.IsValid) return BadRequest(ModelState);
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
 
-            var category = new Category
-            {
-                Name = dto.Name
-            };
+            var exists = await _db.Categories.AnyAsync(c => c.Name.ToLower() == dto.Name.ToLower());
+            if (exists)
+                return Conflict(new { error = "Category already exists." });
 
+            var category = new Category { Name = dto.Name.Trim() };
             _db.Categories.Add(category);
             await _db.SaveChangesAsync();
 
@@ -69,27 +91,40 @@ namespace SkillUpAPI.Controllers
             return CreatedAtAction(nameof(GetById), new { id = category.Id }, dto);
         }
 
-        // PUT /api/categories/{id}
+        // ✅ ADMIN: Update category name
         [HttpPut("{id:int}")]
         public async Task<IActionResult> Update(int id, [FromBody] CategoryDto dto)
         {
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
             var category = await _db.Categories.FindAsync(id);
-            if (category == null) return NotFound();
+            if (category == null)
+                return NotFound();
 
-            category.Name = dto.Name;
+            var duplicate = await _db.Categories.AnyAsync(c => c.Id != id && c.Name.ToLower() == dto.Name.ToLower());
+            if (duplicate)
+                return Conflict(new { error = "Category with this name already exists." });
 
-            _db.Categories.Update(category);
+            category.Name = dto.Name.Trim();
             await _db.SaveChangesAsync();
 
             return NoContent();
         }
 
-        // DELETE /api/categories/{id}
+        // ✅ ADMIN: Delete category (only if no courses are linked)
         [HttpDelete("{id:int}")]
         public async Task<IActionResult> Delete(int id)
         {
-            var category = await _db.Categories.FindAsync(id);
-            if (category == null) return NotFound();
+            var category = await _db.Categories
+                .Include(c => c.Courses)
+                .FirstOrDefaultAsync(c => c.Id == id);
+
+            if (category == null)
+                return NotFound();
+
+            if (category.Courses.Any())
+                return BadRequest(new { error = "Cannot delete category with existing courses." });
 
             _db.Categories.Remove(category);
             await _db.SaveChangesAsync();

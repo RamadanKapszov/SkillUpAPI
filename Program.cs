@@ -87,17 +87,22 @@ builder.Services.AddSwaggerGen(c =>
 
 var app = builder.Build();
 
-app.UseCors("AllowAngular");
 
-// Swagger middleware (dev or always — for testing you can enable in non-dev too)
+// ✅ Enable Swagger (for testing)
 app.UseSwagger();
 app.UseSwaggerUI(c =>
 {
     c.SwaggerEndpoint("/swagger/v1/swagger.json", "SkillUpAPI v1");
-    c.RoutePrefix = "swagger"; // optional, default is "swagger"
+    c.RoutePrefix = "swagger"; // or "" if you want it as default route
 });
 
 app.UseHttpsRedirection();
+
+// ✅ Must come BEFORE CORS & Auth
+app.UseRouting();
+
+// ✅ CORS goes AFTER routing, BEFORE auth
+app.UseCors("AllowAngular");
 
 // Authentication MUST come before Authorization
 app.UseAuthentication();

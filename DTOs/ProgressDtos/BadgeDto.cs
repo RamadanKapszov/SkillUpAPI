@@ -6,7 +6,8 @@
         public string Name { get; set; } = null!;
         public string Description { get; set; } = null!;
         public string ConditionType { get; set; } = null!;
-        public int Threshold { get; set; }
+        public int? Threshold { get; set; }
         public DateTime? AwardedAt { get; set; }
+        public string? IconUrl { get; set; }
     }
 }

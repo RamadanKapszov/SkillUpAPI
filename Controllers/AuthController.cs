@@ -18,13 +18,18 @@ namespace SkillUpAPI.Controllers
             _authService = authService;
         }
 
+        /// ✅ Register a new user
         [HttpPost("register")]
-        public async Task<IActionResult> Register(RegisterRequest dto)
+        [AllowAnonymous]
+        public async Task<IActionResult> Register([FromBody] RegisterRequest dto)
         {
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
             try
             {
-                var authResponse = await _authService.RegisterAsync(dto);
-                return Ok(authResponse);
+                var response = await _authService.RegisterAsync(dto);
+                return Ok(response);
             }
             catch (InvalidOperationException ex)
             {
@@ -32,13 +37,18 @@ namespace SkillUpAPI.Controllers
             }
         }
 
+        /// ✅ Login user and get JWT
         [HttpPost("login")]
-        public async Task<IActionResult> Login(LoginRequest dto)
+        [AllowAnonymous]
+        public async Task<IActionResult> Login([FromBody] LoginRequest dto)
         {
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
             try
             {
-                var authResponse = await _authService.LoginAsync(dto);
-                return Ok(authResponse);
+                var response = await _authService.LoginAsync(dto);
+                return Ok(response);
             }
             catch (InvalidOperationException ex)
             {
@@ -46,6 +56,7 @@ namespace SkillUpAPI.Controllers
             }
         }
 
+        /// ✅ Get current logged user info (requires valid token)
         [Authorize]
         [HttpGet("me")]
         public async Task<ActionResult<UserDto>> GetCurrentUser()
@@ -53,14 +64,15 @@ namespace SkillUpAPI.Controllers
             var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier)
                              ?? User.FindFirstValue(JwtRegisteredClaimNames.Sub);
 
-            if (userIdClaim == null) return Unauthorized();
+            if (string.IsNullOrEmpty(userIdClaim))
+                return Unauthorized();
 
-            var userId = int.Parse(userIdClaim);
+            if (!int.TryParse(userIdClaim, out var userId))
+                return Unauthorized();
 
-            // Assuming your AuthService has a method to get user by ID
             var user = await _authService.GetUserByIdAsync(userId);
-
-            if (user == null) return NotFound();
+            if (user == null)
+                return NotFound();
 
             return Ok(user);
         }

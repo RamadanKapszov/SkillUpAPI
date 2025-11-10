@@ -7,6 +7,7 @@
         public string CourseTitle { get; set; } = null!;
         public int UserId { get; set; }
         public string Username { get; set; } = null!;
+        public string TeacherName { get; set; } = null!;
         public DateTime EnrolledAt { get; set; }
     }
 }

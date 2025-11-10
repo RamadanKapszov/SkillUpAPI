@@ -9,5 +9,6 @@
         public QuestionType Type { get; set; } = QuestionType.Single;
         public string? OptionsJson { get; set; }    // JSON string for options
         public string CorrectAnswer { get; set; } = null!; // JSON or plain
+        public int Points { get; set; } = 1;
     }
 }

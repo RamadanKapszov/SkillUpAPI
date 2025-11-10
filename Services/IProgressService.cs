@@ -12,5 +12,6 @@ namespace SkillUpAPI.Services
         Task<bool> MarkLessonCompletedAsync(int userId, int lessonId);
         Task<IEnumerable<LessonCompletionDto>> GetCompletedLessonsAsync(int userId, int courseId);
         Task<UserCourseProgressDto> GetUserCourseProgressAsync(int userId, int courseId);
+        Task CheckForNewBadgesAsync(int userId);
     }
 }

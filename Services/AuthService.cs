@@ -20,15 +20,16 @@ namespace SkillUpAPI.Services
             _cfg = cfg;
         }
 
+        // ✅ Register new user
         public async Task<AuthResponse> RegisterAsync(RegisterRequest req)
         {
-            // Basic validations
             if (await _db.Users.AnyAsync(u => u.Username == req.Username))
                 throw new InvalidOperationException("Username already taken.");
             if (await _db.Users.AnyAsync(u => u.Email == req.Email))
                 throw new InvalidOperationException("Email already registered.");
 
             var hash = BCrypt.Net.BCrypt.HashPassword(req.Password);
+
             var user = new User
             {
                 Username = req.Username,
@@ -38,12 +39,14 @@ namespace SkillUpAPI.Services
                 TotalPoints = 0,
                 CreatedAt = DateTime.UtcNow
             };
+
             _db.Users.Add(user);
             await _db.SaveChangesAsync();
 
             return GenerateAuthResponse(user);
         }
 
+        // ✅ Login user
         public async Task<AuthResponse> LoginAsync(LoginRequest req)
         {
             var user = await _db.Users
@@ -55,13 +58,14 @@ namespace SkillUpAPI.Services
             return GenerateAuthResponse(user);
         }
 
+        // ✅ Generate JWT and user data
         private AuthResponse GenerateAuthResponse(User user)
         {
             var jwtSection = _cfg.GetSection("Jwt");
             var secret = jwtSection.GetValue<string>("Secret")!;
             var issuer = jwtSection.GetValue<string>("Issuer");
             var audience = jwtSection.GetValue<string>("Audience");
-            var expiresMinutes = jwtSection.GetValue<int>("ExpiresMinutes");
+            var expiresMinutes = jwtSection.GetValue<int>("ExpiresMinutes", 60); // default 1h
 
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret));
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
@@ -74,12 +78,14 @@ namespace SkillUpAPI.Services
                 new Claim(ClaimTypes.Role, user.Role.ToString())
             };
 
+            var expiresAt = DateTime.UtcNow.AddMinutes(expiresMinutes);
+
             var token = new JwtSecurityToken(
                 issuer: issuer,
                 audience: audience,
                 claims: claims,
                 notBefore: DateTime.UtcNow,
-                expires: DateTime.UtcNow.AddMinutes(expiresMinutes),
+                expires: expiresAt,
                 signingCredentials: creds);
 
             var tokenStr = new JwtSecurityTokenHandler().WriteToken(token);
@@ -87,7 +93,7 @@ namespace SkillUpAPI.Services
             return new AuthResponse
             {
                 Token = tokenStr,
-                ExpiresInSeconds = expiresMinutes * 60,
+                ExpiresAt = expiresAt,
                 User = new UserDto
                 {
                     Id = user.Id,
@@ -99,15 +105,14 @@ namespace SkillUpAPI.Services
             };
         }
 
+        // ✅ Get user by ID
         public async Task<UserDto?> GetUserByIdAsync(int userId)
         {
             var user = await _db.Users
                 .AsNoTracking()
                 .FirstOrDefaultAsync(u => u.Id == userId);
 
-            if (user == null) return null;
-
-            return new UserDto
+            return user == null ? null : new UserDto
             {
                 Id = user.Id,
                 Username = user.Username,
@@ -116,6 +121,5 @@ namespace SkillUpAPI.Services
                 TotalPoints = user.TotalPoints
             };
         }
-
     }
 }

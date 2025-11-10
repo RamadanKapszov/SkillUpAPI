@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SkillUpAPI.Persistence;
 
@@ -11,9 +12,11 @@ using SkillUpAPI.Persistence;
 namespace SkillUpAPI.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251106181224_AddQuestionPoints")]
+    partial class AddQuestionPoints
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -39,16 +42,16 @@ namespace SkillUpAPI.Migrations
                     b.Property<string>("IconUrl")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(450)");
-
                     b.Property<int?>("Threshold")
                         .HasColumnType("int");
 
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
                     b.HasKey("Id");
 
-                    b.HasIndex("Name")
+                    b.HasIndex("Title")
                         .IsUnique();
 
                     b.ToTable("Badges", (string)null);
@@ -59,16 +62,16 @@ namespace SkillUpAPI.Migrations
                             Id = 1,
                             ConditionType = "TotalPoints",
                             Description = "Earn 100 points",
-                            Name = "Rookie",
-                            Threshold = 100
+                            Threshold = 100,
+                            Title = "Rookie"
                         },
                         new
                         {
                             Id = 2,
                             ConditionType = "CourseCompleted",
                             Description = "Complete a course",
-                            Name = "Finisher",
-                            Threshold = 1
+                            Threshold = 1,
+                            Title = "Finisher"
                         });
                 });
 
@@ -79,9 +82,6 @@ namespace SkillUpAPI.Migrations
                         .HasColumnType("int");
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("Description")
-                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Name")
                         .IsRequired()

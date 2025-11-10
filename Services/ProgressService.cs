@@ -178,5 +178,46 @@ namespace SkillUpAPI.Services
 
             await _db.SaveChangesAsync();
         }
+
+        public async Task CheckForNewBadgesAsync(int userId)
+        {
+            var user = await _db.Users
+                .Include(u => u.UserBadges)
+                .FirstOrDefaultAsync(u => u.Id == userId);
+
+            if (user == null) return;
+
+            var existingBadgeIds = user.UserBadges.Select(ub => ub.BadgeId).ToHashSet();
+
+            var badges = await _db.Badges.ToListAsync();
+
+            foreach (var badge in badges)
+            {
+                if (existingBadgeIds.Contains(badge.Id)) continue;
+
+                bool qualifies = badge.ConditionType switch
+                {
+                    nameof(BadgeCondition.TotalPoints) => user.TotalPoints >= badge.Threshold,
+                    nameof(BadgeCondition.TestsCompleted) => await _db.UserTests.CountAsync(t => t.UserId == userId) >= badge.Threshold,
+                    nameof(BadgeCondition.CourseCompleted) => await _db.Enrollments
+                        .Where(e => e.UserId == userId)
+                        .CountAsync() >= badge.Threshold,
+                    _ => false
+                };
+
+                if (qualifies)
+                {
+                    _db.UserBadges.Add(new UserBadge
+                    {
+                        UserId = userId,
+                        BadgeId = badge.Id,
+                        AwardedAt = DateTime.UtcNow
+                    });
+                }
+            }
+
+            await _db.SaveChangesAsync();
+        }
+
     }
 }
