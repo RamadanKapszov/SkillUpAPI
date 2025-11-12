@@ -353,43 +353,64 @@ namespace SkillUpAPI.Controllers
             var userId = GetUserId();
             if (userId == null) return Unauthorized();
 
-            var teaching = await _db.Courses
+            // 🧑‍🏫 Get courses this teacher created
+            var teachingCourses = await _db.Courses
                 .Where(c => c.TeacherId == userId)
                 .Include(c => c.Category)
                 .Include(c => c.Teacher)
-                .Select(c => new CourseListDto
+                .Select(c => new
                 {
-                    Id = c.Id,
-                    Title = c.Title,
-                    Description = c.Description,
-                    CategoryId = c.CategoryId,
+                    c.Id,
+                    c.Title,
+                    c.Description,
+                    c.ShortDescription,
+                    c.Level,
+                    c.Duration,
+                    c.Language,
+                    c.ImageUrl,
+                    c.CategoryId,
                     CategoryName = c.Category != null ? c.Category.Name : null,
-                    TeacherId = c.TeacherId,
+                    c.TeacherId,
                     TeacherUsername = c.Teacher.Username,
-                    CreatedAt = c.CreatedAt
+                    c.CreatedAt
                 })
                 .ToListAsync();
 
-            var enrolled = await _db.Enrollments
-                .Where(e => e.UserId == userId)
-                .Include(e => e.Course)
-                    .ThenInclude(c => c.Teacher)
-                .Select(e => new CourseListDto
+            var result = new List<object>();
+
+            foreach (var c in teachingCourses)
+            {
+                // 🧮 Count enrolled students
+                var studentsCount = await _db.Enrollments.CountAsync(e => e.CourseId == c.Id);
+
+                // ⭐ Compute average rating
+                var avgRating = await _db.LessonReviews
+                    .Where(r => r.Lesson.CourseId == c.Id)
+                    .AverageAsync(r => (double?)r.Rating) ?? 0.0;
+
+                result.Add(new
                 {
-                    Id = e.Course.Id,
-                    Title = e.Course.Title,
-                    Description = e.Course.Description,
-                    CategoryId = e.Course.CategoryId,
-                    CategoryName = e.Course.Category != null ? e.Course.Category.Name : null,
-                    TeacherId = e.Course.TeacherId,
-                    TeacherUsername = e.Course.Teacher.Username,
-                    CreatedAt = e.Course.CreatedAt
-                })
-                .ToListAsync();
+                    c.Id,
+                    c.Title,
+                    c.Description,
+                    c.ShortDescription,
+                    c.Level,
+                    c.Duration,
+                    c.Language,
+                    c.ImageUrl,
+                    c.CategoryId,
+                    c.CategoryName,
+                    c.TeacherId,
+                    c.TeacherUsername,
+                    c.CreatedAt,
+                    StudentsCount = studentsCount,
+                    AverageRating = Math.Round(avgRating, 1)
+                });
+            }
 
-            var merged = teaching.Concat(enrolled).GroupBy(c => c.Id).Select(g => g.First()).ToList();
-            return Ok(merged);
+            return Ok(result);
         }
+
 
         // 🔹 COURSE PROGRESS
         [HttpGet("{courseId}/progress")]
