@@ -92,8 +92,6 @@ namespace SkillUpAPI.Controllers
                 })
             });
         }
-
-        // ✏️ PUT: api/users/{id}/profile (User updates their own profile)
         [HttpPut("{id:int}/profile")]
         [Authorize(Roles = "Student,Teacher,Admin")]
         public async Task<IActionResult> UpdateProfile(int id, [FromBody] UpdateUserProfileDto dto)
@@ -110,14 +108,62 @@ namespace SkillUpAPI.Controllers
             var user = await _db.Users.FindAsync(id);
             if (user == null) return NotFound();
 
+            // ✅ Update basic info
+            if (!string.IsNullOrWhiteSpace(dto.Username))
+                user.Username = dto.Username;
+
+            if (!string.IsNullOrWhiteSpace(dto.Email))
+                user.Email = dto.Email;
+
+            if (!string.IsNullOrWhiteSpace(dto.Password))
+            {
+                user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password);
+            }
+
+
             user.AvatarUrl = dto.AvatarUrl ?? user.AvatarUrl;
             user.Bio = dto.Bio ?? user.Bio;
 
             _db.Users.Update(user);
             await _db.SaveChangesAsync();
 
-            return NoContent();
+            return Ok(new { message = "Profile updated successfully" });
         }
+
+        [HttpPost("{id:int}/avatar")]
+        [Authorize(Roles = "Student,Teacher,Admin")]
+        public async Task<IActionResult> UploadAvatar(int id, IFormFile file)
+        {
+            var currentUserId = GetUserId();
+            if (currentUserId == null || (currentUserId != id && !User.IsInRole(nameof(UserRole.Admin))))
+                return Forbid();
+
+            if (file == null || file.Length == 0)
+                return BadRequest(new { error = "No file uploaded" });
+
+            // Example: save locally (you might want cloud storage)
+            var uploadsDir = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "avatars");
+            if (!Directory.Exists(uploadsDir))
+                Directory.CreateDirectory(uploadsDir);
+
+            var fileName = $"{Guid.NewGuid()}{Path.GetExtension(file.FileName)}";
+            var filePath = Path.Combine(uploadsDir, fileName);
+            using (var stream = new FileStream(filePath, FileMode.Create))
+            {
+                await file.CopyToAsync(stream);
+            }
+
+            var user = await _db.Users.FindAsync(id);
+            if (user == null) return NotFound();
+
+            user.AvatarUrl = $"/avatars/{fileName}";
+            _db.Users.Update(user);
+            await _db.SaveChangesAsync();
+
+            return Ok(new { avatarUrl = user.AvatarUrl });
+        }
+
+
 
         // 🛡️ PUT: api/users/{id}/role (Admin only)
         [HttpPut("{id:int}/role")]
@@ -217,7 +263,8 @@ namespace SkillUpAPI.Controllers
                 {
                     e.Course.Id,
                     e.Course.Title,
-                    e.EnrolledAt
+                    e.EnrolledAt,
+                    e.Course.ImageUrl
                 })
             });
         }
