@@ -115,11 +115,6 @@ namespace SkillUpAPI.Controllers
             if (!string.IsNullOrWhiteSpace(dto.Email))
                 user.Email = dto.Email;
 
-            if (!string.IsNullOrWhiteSpace(dto.Password))
-            {
-                user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password);
-            }
-
 
             user.AvatarUrl = dto.AvatarUrl ?? user.AvatarUrl;
             user.Bio = dto.Bio ?? user.Bio;
@@ -161,6 +156,45 @@ namespace SkillUpAPI.Controllers
             await _db.SaveChangesAsync();
 
             return Ok(new { avatarUrl = user.AvatarUrl });
+        }
+
+        [HttpPut("{id:int}/change-password")]
+        [Authorize(Roles = "Student,Teacher,Admin")]
+        public async Task<IActionResult> ChangePassword(int id, [FromBody] ChangePasswordDto dto)
+        {
+            var currentUserId = GetUserId();
+            var isAdmin = User.IsInRole(nameof(UserRole.Admin));
+
+            if (currentUserId == null)
+                return Unauthorized();
+
+            var changingSelf = currentUserId == id;
+
+            // Ако сменяме чужда парола → трябва да сме Admin
+            if (!changingSelf && !isAdmin)
+                return Forbid();
+
+            var user = await _db.Users.FindAsync(id);
+            if (user == null) return NotFound();
+
+            if (changingSelf)
+            {
+                if (string.IsNullOrWhiteSpace(dto.OldPassword))
+                    return BadRequest(new { error = "Моля, въведете текущата парола." });
+
+                var isValid = BCrypt.Net.BCrypt.Verify(dto.OldPassword, user.PasswordHash);
+                if (!isValid)
+                    return BadRequest(new { error = "Старата парола е грешна." });
+            }
+
+            if (string.IsNullOrWhiteSpace(dto.NewPassword))
+                return BadRequest(new { error = "Новата парола е задължителна." });
+
+            // 🔐 Записваме новата парола (хеширана)
+            user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.NewPassword);
+            await _db.SaveChangesAsync();
+
+            return Ok(new { message = "Паролата е променена успешно." });
         }
 
 
